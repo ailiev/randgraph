@@ -83,20 +83,25 @@ type Edge = (Node, Int)         -- destination and weight
 -- a list of adjacency lists
 type Graph = [[Edge]]
 
+
 -- generate a random list of out-edges.
 -- WANT: number of edges normally distributed with mean = D, and P[x > 4D/3] < 10%
 -- From tables, 1.3*sigma = D/3, so set sigma to D/4 (approx)
 --
 -- weights and destinations uniformly chosen.
-
-
 outEdges :: (MonadRandom m) => GParams -> m [Edge]
 outEdges params   = do let u        = fromIntegral $ d params -- mean
                            s        = u/4 -- deviation
                            (wmin,wmax) = w_range params
                        z            <- randNormal -- standard normal
-                       let numEs    = floor $ s*z + u
-                       -- BUMMER: cannot create a stream, take it from the monad, and then
+                       -- apply our mean and std. deviation
+                       let x        = s*z + u
+                       -- just truncate values which exceed (4/3)*mean
+                       -- should be about 10% of values, which will be truncated.
+                           numEs    = floor $ min x ((4/3)*u)
+                       -- The destinations should be unique.
+                       --
+                       -- BUMMER: cannot create a stream, extract it from the monad, and then
                        -- take the needed number of elements. apparently the laziness
                        -- does not cross monad extraction?
                        dest_stream  <- (replicateM (numEs*3) $ getRandomR (0,v params - 1))
@@ -119,10 +124,12 @@ randomGenList g = iterateList (tuple2list2 . split) g
 
 -- a Normally distributed random variable, with mean=0 and sigma=1
 randNormal :: (MonadRandom m) => m Float
-randNormal        = do [u,v] <- replicateM 2 getRandom
+randNormal        = do [u,v] <- replicateM 2 getRandom -- uniform randoms on [0,1)
+                       -- and now use the Box-Muller Transformation; x and y are
+                       -- independent and with a standard normal density. we just use x
+                       -- which wastes randomness a bit.
                        let x = sqrt (-2 * log u) * cos (2*pi*v)
-                           -- we just need one; waste randomness a bit though
-                           -- y = sqrt (-2 * log u) * sin (2*pi*v)
+                           y = sqrt (-2 * log u) * sin (2*pi*v)
                        return x
 
 
