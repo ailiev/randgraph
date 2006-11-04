@@ -41,22 +41,22 @@ main =
                    let [v,d,wmin,wmax] = map read args
                        params    = GParams { v = v, d = d, w_range = (wmin,wmax) }
                        graph     = randGraph params randgen
-                   print graph
+                   print (params,graph)
 
             "c" ->              -- make input for the C program
-                   do g <- getContents >>= readIO
+                   do (_ :: GParams, g)    <- getContents >>= readIO
                       putStr $ printGraph_C g
 
             "sfdl" ->           -- make an input for the sfdl Dijkstra program
-                   do g <- getContents >>= readIO
-                      putStr $ printGraph_SFDL g
+                   do (params, g)           <- getContents >>= readIO
+                      putStr $ printGraph_SFDL params g
 
             "gviz" ->
-                do g <- getContents >>= readIO
+                do (_ :: GParams, g)        <- getContents >>= readIO
                    putStr $ printGraph g
 
             "sp" ->
-                do g <- getContents >>= readIO
+                do (_ :: GParams, g)        <- getContents >>= readIO
                    let gr       = g2g g
                        [s,t]    = map read args -- the source and target
                        path     = sp s t gr
@@ -75,6 +75,7 @@ data GParams = GParams { v :: Int,      -- number of vertices
                          d :: Int,      -- max out-degree
                          w_range :: (Int,Int) -- range of edge weights
                        }
+               deriving (Show,Read)
 
 type Node = Int
 type Edge = (Node, Int)         -- destination and weight
@@ -98,6 +99,8 @@ outEdges params   = do let u        = fromIntegral $ d params -- mean
                        let x        = s*z + u
                        -- just truncate values which exceed (4/3)*mean
                        -- should be about 10% of values, which will be truncated.
+                       -- IMPORTANT: the 4/3 constant appears in dijkstra.sfdl too; and in
+                       -- printGraph_SFDL here.
                            numEs    = floor $ min x ((4/3)*u)
                        -- The destinations should be unique.
                        --
@@ -137,13 +140,13 @@ randNormal        = do [u,v] <- replicateM 2 getRandom -- uniform randoms on [0,
 -- serializing the graph to be given to the SFDL Dijkstra program
 -- *****************
 
--- cSFDL_V             = 7
-cSFDL_MAX_OUT_DEG   = 5
-
-printGraph_SFDL ees =
-    let -- a flat list of edge weights, cSFDL_MAX_OUT_DEG per vertex, padded with (-1,-1) pairs
+printGraph_SFDL params ees =
+    let -- a flat list of edge weights, of a fixed length, padded with (-1,-1) pairs
         -- at the end; then same thing for edge destinations.
-        (dests, ws) = unzip $ concatMap (padWithTo (-1,-1) cSFDL_MAX_OUT_DEG) ees
+        -- IMPORTANT: the 4/3 constant is also used in dijkstra.sfdl, and in the
+        -- 'outEdges' function above.
+        max_edges   = ((d params) * 4) `div` 3
+        (dests, ws) = unzip $ concatMap (padWithTo (-1,-1) max_edges) ees
         myShow = (++ "\n") . show
     in
       concat $ map myShow ws ++ map myShow dests
@@ -153,6 +156,7 @@ printGraph_C ees =
     let (dests, ws) = unzip $ concatMap (++ [(-1,-1)]) ees
         myShow i = let s = show i
                    -- HACK: padding with space to 10 chars here, as expected in read_num()
+                   -- in the ORAM "operating system"
                    in s ++ (replicate (9 - length s) ' ') ++ "\n"
     in
       concatMap myShow $ interleave dests ws
