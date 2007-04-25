@@ -11,9 +11,15 @@ import System
 import Text.Printf
 
 import qualified Data.Graph.Inductive.Graph         as Gr
+import qualified Data.Graph.Inductive.Basic     as GrBas
 import qualified Data.Graph.Inductive.Graphviz      as GViz
 import qualified Data.Graph.Inductive.Tree          as TrGr
 import           Data.Graph.Inductive.Query.SP      (sp, spLength)
+import qualified Data.Graph.Inductive.Query.BCC     as GrBCC
+
+import              Text.PrettyPrint                as PP
+
+import UDraw
 
 import SashoLib
 import MonadRandom
@@ -43,6 +49,14 @@ main =
                        graph     = randGraph params randgen
                    print (params,graph)
 
+            "from-manual"   ->
+                do man_gr   <- getContents >>= readIO
+                   let (params,graph) = manual2gr man_gr
+                   print (params,graph)
+            "bcc"           ->
+                do (_ :: GParams, g)        <- getContents >>= readIO
+                   print $ map Gr.nodes $ GrBCC.bcc (g2g g)
+
             "c" ->              -- make input for the C program
                    do (_ :: GParams, g)    <- getContents >>= readIO
                       putStr $ printGraph_C g
@@ -54,6 +68,18 @@ main =
             "gviz" ->
                 do (_ :: GParams, g)        <- getContents >>= readIO
                    putStr $ printGraph g
+
+            "udg"   ->
+                do (_ :: GParams, g)        <- getContents >>= readIO
+                   let g' = g2g g
+                       -- starts = map Gr.node' $ GrBas.gsel ((== 0) . Gr.indeg') g'
+                       starts = [0..7]
+                   putStr $ PP.render $ doc $ UDraw.makeTerm (show)
+                                                             (\v -> [("OBJECT",
+                                                                      show v)]
+                                                             )
+                                                             starts
+                                                             g'
 
             "sp" ->
                 do (_ :: GParams, g)        <- getContents >>= readIO
@@ -84,6 +110,18 @@ type Edge = (Node, Int)         -- destination and weight
 -- a list of adjacency lists
 type Graph = [[Edge]]
 
+
+manual2gr :: [(Int, [(Int,Int)])] -> (GParams, Graph)
+manual2gr edgelist = let (vs, ees) = unzip edgelist
+                         v         = length edgelist
+                         d         = maximum $ map length ees
+                         ws        = concatMap (map snd) ees
+                         w_min     = minimum ws
+                         w_max     = maximum ws
+                      in (GParams { v = v,
+                                    d = d,
+                                    w_range = (w_min, w_max) },
+                          ees)
 
 -- generate a random list of out-edges.
 -- WANT: number of edges normally distributed with mean = D, and P[x > 4D/3] < 10%

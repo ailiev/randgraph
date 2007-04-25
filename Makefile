@@ -6,6 +6,7 @@ include $(PIRDIR)/header.make
 GHCFLAGS += -fallow-overlapping-instances
 GHCFLAGS += -fglasgow-exts
 GHCFLAGS += -i$(HOME)/work/code/lib/haskell
+GHCFLAGS += -i$(HOME)/work/code/sfdl-compiler
 
 GHCFLAGS += -v0
 
