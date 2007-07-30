@@ -1,0 +1,46 @@
+<html>
+<head>
+<link href="../../shared/style.css" rel="stylesheet" type="text/css" />
+</head>
+
+<body>
+<h1>Dijkstra helpers</h1>
+
+<code>RandGraph</code> is a program to help with generating, converting and manipulating graphs.
+
+<h2>Using RandGraph</h2>
+
+Run the program without args to get a list of available commands. A summary of what the various commands do:
+<ul>
+<li>Generate (in native Haskell format) random graphs with:
+<ul><li>Specified number of vertices,
+    <li>Normally distributed out-degree per vertex, but within a specified maximum. Thus, the out-degree distribution is a "truncated normal".
+    <li>Uniformly random edge destinations (unique for a given source vertex),
+    <li>Uniform edge weights, within a given range.
+</ul>
+<li> Compute shortest paths on the graphs.
+<li>Convert graphs to:
+<ul>
+   <li>C-Json as needed by the SFDL program,
+    <li>Stream of numbers in the format expected by the C implementation of Dijsktra (in <code>dijkstra/c/</code>) intended for the MIPS emulator.
+  <li>A gviz file, which can be processed using <code>dot</code> to produce visualizations of the graph.
+  <li>A file for the uDrawGraph visualization program. This is currently incomplete - the produced uDrawGraph image does not show vertex numbers or edge weights.
+</ul>
+<li> Convert graphs from:
+<ul><li>C-Json format.
+    <li>A "manual" format consisting of Haskell lists of edges, as specified by the input to the processing function:
+<pre>
+manual2gr :: [(Int,             -- ! vertex number
+               [(Int,           -- ! edge destination vertex number
+                 Int)           -- ! edge weight
+               ])
+             ] -> ...
+</pre>
+</ul>
+
+</ul>
+
+
+
+</body>
+</html>

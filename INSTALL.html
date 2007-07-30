@@ -1,0 +1,28 @@
+<html>
+<head>
+<link href="../../shared/style.css" rel="stylesheet" type="text/css" />
+</head>
+
+<body>
+<h1>Installing RandGraph</h1>
+
+<h2>Prerequisites</h2>
+
+<ul>
+  <li>The <code>ghc</code> Haskell compiler, version 6.4 or newer. Current <code>hugs</code>
+     almost works too, but does not support cpp preprocessing which we use in several places.
+  
+  <li>Json library, built in <code>json/</code>. See <a href="../../json/INSTALL.html" >INSTALL</a>.
+  <li>SashoLib.hs and MonadRandom.hs, which are in <code>lib/haskell/</code></li>
+  <li>Some components from the Faerieplay compiler in <code>sfdl-compiler/</code></li>
+  <li>The Haskell functional graph library (in the <code>Data.Graph.Inductive</code> package). TODO url.
+</ul>
+
+<h2>Building</h2>
+<pre>
+$ make install
+</pre>
+Builds and installs into the dist directory configured in the main config file <code>pir/config.make</code>.
+
+</body>
+</html>

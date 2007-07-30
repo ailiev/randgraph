@@ -1,12 +1,19 @@
-PIRDIR=../../pir
+BASEDIR = ../..
 
-include $(PIRDIR)/utils.make
-include $(PIRDIR)/header.make
+SHARED_DIR=$(BASEDIR)/pir
+
+include $(SHARED_DIR)/utils.make
+include $(SHARED_DIR)/header.make
+
+include $(BASEDIR)/rules.make
+
 
 GHCFLAGS += -fallow-overlapping-instances
 GHCFLAGS += -fglasgow-exts
-GHCFLAGS += -i$(HOME)/work/code/lib/haskell
-GHCFLAGS += -i$(HOME)/work/code/sfdl-compiler
+
+GHCFLAGS += -i$(BASEDIR)/lib/haskell
+GHCFLAGS += -i$(BASEDIR)/sfdl-compiler
+GHCFLAGS += -i$(BASEDIR)/json/bnfc
 
 GHCFLAGS += -v0
 
@@ -15,7 +22,10 @@ all: RandGraph
 
 
 install: RandGraph
-	$(INSTALL) $^ $(LEEDS_BIN)
+	$(INSTALL) $^ $(DIST_BIN)
 
 RandGraph: RandGraph.hs
 	ghc $(GHCFLAGS) --make -o $@ $^
+
+clean:
+	$(RM) RandGraph RandGraph.{o,hi}

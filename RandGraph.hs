@@ -1,7 +1,15 @@
+-- code to randomly generate and manipulate graphs, for the graph-search SFDL and C
+-- programs in Faerieplay.
+
 -- parameters:
 -- - number of vertices,
--- - out-degree (uniform distribution on [0..d]?)
+-- - max out-degree
 -- - weight range
+
+-- REQUIRES:    MonadRandom.hs
+--              Faerieplay.UDraw
+--              Faerieplay.SashoLib
+--              Json library
 
 module Main where
 
@@ -19,20 +27,33 @@ import qualified Data.Graph.Inductive.Query.BCC     as GrBCC
 
 import              Text.PrettyPrint                as PP
 
-import UDraw
+import Maybe                                        (fromJust)
 
-import SashoLib
+import Faerieplay.UDraw                             as UDraw
+import Faerieplay.SashoLib
+
 import MonadRandom
+
+import Json.Abs
+import Json.Lex
+import Json.Par
+import Json.ErrM
 
 
 usage =         do progname <- getProgName
                    putStrLn $ "Usage: " ++ progname ++ " <command>"
-                   putStrLn "Commands:"
-                   putStrLn "generate <V> <D> <w_min> <w_max> > graph-file"
-                   putStrLn "c < graph-file"
-                   putStrLn "sfdl < graph-file"
-                   putStrLn "gviz < graph-file"
+                   putStrLn "******Commands"
+                   putStrLn "generate <V> <max out degree> <w_min> <w_max> > graph-file"
+                   putStrLn "from-json < jsonfile > graph-file"
+                   putStrLn "from-manual < manual-file > graph-file"
+                   putStrLn "***Shortest path"
                    putStrLn "sp <src> <dest> < graph-file"
+                   putStrLn "***Convert to other formats"
+                   putStrLn "c < graph-file			[convert to input for C/ORAM dijkstra porgram]"
+                   putStrLn "json < graph-file		[convert to C-Json format for SFDL dijsktra]"
+                   putStrLn "***Visualizations"
+                   putStrLn "gviz < graph-file"
+                   putStrLn "udg < graph-file"
 
 main =
     do cmd_args <- getArgs
@@ -45,10 +66,13 @@ main =
             "generate"  -> 
                 do randgen   <- newStdGen
                    let [v,d,wmin,wmax] = map read args
-                       params    = GParams { v = v, d = d, w_range = (wmin,wmax) }
+                       params    = GParams { v = v, deg = d, w_range = (wmin,wmax) }
                        graph     = randGraph params randgen
                    print (params,graph)
-
+            "from-json"  ->
+                do json     <- getContents
+                   let (params,graph) = jsonstr2gr json
+                   print (params,graph)
             "from-manual"   ->
                 do man_gr   <- getContents >>= readIO
                    let (params,graph) = manual2gr man_gr
@@ -62,8 +86,8 @@ main =
                       putStr $ printGraph_C g
 
             "sfdl" ->           -- make an input for the sfdl Dijkstra program
-                   do (params, g)           <- getContents >>= readIO
-                      putStr $ printGraph_SFDL params g
+                   do (_ :: GParams, g)           <- getContents >>= readIO
+                      putStr $ printGraph_SFDL g
 
             "gviz" ->
                 do (_ :: GParams, g)        <- getContents >>= readIO
@@ -94,14 +118,133 @@ main =
             "help"      -> usage
             _           -> usage
 
-                   
+-- has the same fields as the Vertex struct in dijkstra.sfdl
+data SFDLVertex =   SFDLVertex { -- we will fill these in:
+                                 num, edge_list_head, num_out_edges :: Int,
+
+                                 -- and leave these at default values, to be filled in
+                                 -- by the SFDL code.
+                                 d, pi_idx, heap_idx :: Int
+                                 }
+                                 deriving (Show)
+
+data SFDLEdge =     SFDLEdge { -- fill both in
+                               dest_idx, w :: Int
+                             }
+                    deriving (Show)
+
+data SFDLGraph =    SFDLGraph { --  
+                                vs  :: [SFDLVertex],
+                                es  :: [SFDLEdge]
+                              }
+                    deriving (Show)
 
 
 data GParams = GParams { v :: Int,      -- number of vertices
-                         d :: Int,      -- max out-degree
+                         deg :: Int,      -- max out-degree
                          w_range :: (Int,Int) -- range of edge weights
                        }
                deriving (Show,Read)
+
+
+
+jsonstr2gr :: String -> (GParams, Graph)
+jsonstr2gr str  = let ts        = myLexer str
+                      parse     = pTopLevelT ts
+                      toplevel  = case parse of (Ok p)  -> p
+                                                (Bad s) -> error $ "Parse error: " ++ s
+                      in json2gr toplevel
+
+-- extract a Graph from a parsed C-Json TopLevel
+json2gr :: TopLevelT -> (GParams, Graph)
+json2gr tl      = let fields    = simplifyFields tl
+                      vs        = fromJustMsg "Vs" $ lookup "Vs" fields
+                      es        = fromJustMsg "Es" $ lookup "Es" fields
+                      out_edge_counts   = map (extrIntField "num_out_edges") vs
+                      -- simplify the edges to just pairs.
+                      edges     = [ (dest, w) | dest    <- map (extrIntField "dest_idx") es
+                                              | w       <- map (extrIntField "w") es]
+                      -- split edge list into list of edge-lists, one for each vertex.
+                      edge_list = guidedSplit out_edge_counts edges
+                  in  manual2gr [(v_nums, es) | es <- edge_list
+                                              | v_nums <- map (extrIntField "num") vs]
+
+
+-- split a list into pieces, the size of each being dictated by the guide-list
+guidedSplit :: [Int]            -- ! The guide list - how large is each split
+            -> [a]              -- ! The list
+            -> [[a]]            -- ! The split list.
+guidedSplit (t:ts) xs   = let (head, tail)  = splitAt t xs
+                          in  head : guidedSplit ts tail
+guidedSplit [] _        = []
+
+                      
+                      
+
+simplifyFields :: TopLevelT -> [(String, [Value])]
+simplifyFields (TopLevel objs)
+    = let (Object tl1)  = head objs -- the first toplevel
+          [Assoc (Ident "G") val] = tl1 -- (Gr field (the only one)
+          (ObjectVal (Object assocs))   = val
+      in [(name, vals) | (Assoc (Ident name) (SListVal (SList vals)))   <- assocs]
+
+
+-- extract an integer field from an object value
+extrIntField :: String -> Value -> Int
+extrIntField name (ObjectVal (Object assocs)) =
+    let (Assoc _ (NumVal (NumInt i)))   = fromJustMsg ("getting field " ++ name) $
+                                          find (\x -> case x of
+                                                        (Assoc kuku _)
+                                                            | kuku == (Ident name)  -> True
+                                                        _                           -> False)
+                                                assocs
+    in  fromInteger i                                 
+                                                      
+
+
+-- class for types which can be printed to a C-Json string.
+class CJsonDocable a where
+    docCJson :: a -> PP.Doc
+
+
+
+-- quick kludges.
+-- TODO: provide functions to serialize an Object, Array, Assoc, etc.
+instance CJsonDocable SFDLVertex where
+    docCJson x = PP.braces (PP.hcat
+                                  (PP.punctuate PP.comma
+                                         [ text "num=" <> int (num x)
+                                         , text "edge_list_head=" <> int (edge_list_head x)
+                                         , text "num_out_edges=" <> int (num_out_edges x)
+                                         , text "d=" <> int (d x)
+                                         , text "pi_idx=" <> int (pi_idx x)
+                                         , text "heap_idx=" <> int (heap_idx x)
+                                         ]
+                                  )
+                           )
+
+instance CJsonDocable SFDLEdge where
+    docCJson x = PP.braces (PP.hcat [
+                                     text "dest_idx=" , int (dest_idx x)
+                                    , text ",w=" , int (w x)
+                                    ]
+                           )
+
+-- this serialization is not same as automated one would be, as we named
+-- the SFDL fields capitalized, which is not allowed in Haskell.
+instance CJsonDocable SFDLGraph where
+    docCJson x = PP.braces (PP.vcat
+                              (PP.punctuate PP.comma
+                               [text "Vs=" <> PP.brackets (PP.vcat
+                                                           (PP.punctuate PP.comma
+                                                            (map docCJson (vs x)))),
+                                text "Es=" <> PP.brackets (PP.vcat
+                                                           (PP.punctuate PP.comma
+                                                            (map docCJson (es x))))
+                               ]
+                              )
+                           )
+                            
 
 type Node = Int
 type Edge = (Node, Int)         -- destination and weight
@@ -111,7 +254,12 @@ type Edge = (Node, Int)         -- destination and weight
 type Graph = [[Edge]]
 
 
-manual2gr :: [(Int, [(Int,Int)])] -> (GParams, Graph)
+-- convert a "manual" representation of a graph to a Graph object.
+manual2gr :: [(Int,             -- ! vertex number
+               [(Int,           -- ! edge destination vertex number
+                 Int)           -- ! edge weight
+               ])
+             ] -> (GParams, Graph)
 manual2gr edgelist = let (vs, ees) = unzip edgelist
                          v         = length edgelist
                          d         = maximum $ map length ees
@@ -119,27 +267,28 @@ manual2gr edgelist = let (vs, ees) = unzip edgelist
                          w_min     = minimum ws
                          w_max     = maximum ws
                       in (GParams { v = v,
-                                    d = d,
+                                    deg = d,
                                     w_range = (w_min, w_max) },
                           ees)
 
 -- generate a random list of out-edges.
--- WANT: number of edges normally distributed with mean = D, and P[x > 4D/3] < 10%
--- From tables, 1.3*sigma = D/3, so set sigma to D/4 (approx)
+-- WANT: number of edges x normally distributed, with P[x > D] < 10%. This can be achieved
+-- with:
+-- mean = (3/4)D
+-- sigma = mean/4
 --
 -- weights and destinations uniformly chosen.
 outEdges :: (MonadRandom m) => GParams -> m [Edge]
-outEdges params   = do let u        = fromIntegral $ d params -- mean
+outEdges params   = do let max_d    = (fromIntegral $ deg params)
+                           u        = (3/4) * max_d -- mean
                            s        = u/4 -- deviation
                            (wmin,wmax) = w_range params
                        z            <- randNormal -- standard normal
                        -- apply our mean and std. deviation
                        let x        = s*z + u
-                       -- just truncate values which exceed (4/3)*mean
+                       -- just truncate values which exceed max_d
                        -- should be about 10% of values, which will be truncated.
-                       -- IMPORTANT: the 4/3 constant appears in dijkstra.sfdl too; and in
-                       -- printGraph_SFDL here.
-                           numEs    = floor $ min x ((4/3)*u)
+                           numEs    = floor $ min x (max_d)
                        -- The destinations should be unique.
                        --
                        -- BUMMER: cannot create a stream, extract it from the monad, and then
@@ -161,7 +310,7 @@ randGraph params rand = evalRand (randGraphMR params) rand
 
 
 randomGenList :: (RandomGen g) => g -> [g]
-randomGenList g = iterateList (tuple2list2 . split) g
+randomGenList g = iterateList (tuple2list2 . Random.split) g
 
 -- a Normally distributed random variable, with mean=0 and sigma=1
 randNormal :: (MonadRandom m) => m Float
@@ -178,16 +327,25 @@ randNormal        = do [u,v] <- replicateM 2 getRandom -- uniform randoms on [0,
 -- serializing the graph to be given to the SFDL Dijkstra program
 -- *****************
 
-printGraph_SFDL params ees =
-    let -- a flat list of edge weights, of a fixed length, padded with (-1,-1) pairs
-        -- at the end; then same thing for edge destinations.
-        -- IMPORTANT: the 4/3 constant is also used in dijkstra.sfdl, and in the
-        -- 'outEdges' function above.
-        max_edges   = ((d params) * 4) `div` 3
-        (dests, ws) = unzip $ concatMap (padWithTo (-1,-1) max_edges) ees
-        myShow = (++ "\n") . show
-    in
-      concat $ map myShow ws ++ map myShow dests
+-- first convert to the SFDL types
+graph2sfdl :: Graph -> SFDLGraph
+graph2sfdl ees =
+    let num_out_edges's  = map length ees
+        vs          = [ SFDLVertex num edge_list_head num_out_edges
+                                   0 0 0
+                        | num            <- [0..length ees - 1]
+                        | num_out_edges  <- num_out_edges's
+                        | edge_list_head <- runSumFrom0 num_out_edges's
+                      ]
+        es          = [ SFDLEdge dest_idx w | (dest_idx,w) <- concat ees ]
+    in SFDLGraph vs es
+
+
+printGraph_SFDL :: Graph -> String
+printGraph_SFDL ees = let gr_doc    = docCJson $ graph2sfdl ees
+                          param_doc = PP.braces (text "G=" <> gr_doc)
+                      in  PP.render param_doc
+
 
 -- interleave dests and weights, and mark the end of an edge list with a (-1,-1) pair
 printGraph_C ees =
