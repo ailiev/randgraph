@@ -12,11 +12,21 @@
   <li>The <code>ghc</code> Haskell compiler, version 6.4 or newer. Current <code>hugs</code>
      almost works too, but does not support cpp preprocessing which we use in several places.
   
-  <li>Json library, built in <code>json/</code>. See <a href="../../json/INSTALL.html" >INSTALL</a>.
-  <li>SashoLib.hs and MonadRandom.hs, which are in <code>lib/haskell/</code></li>
-  <li>Some components from the Faerieplay compiler in <code>sfdl-compiler/</code></li>
-  <li>The Haskell functional graph library (in the <code>Data.Graph.Inductive</code> package). TODO url.
-</ul>
+  <li>Json library, built in <code>json/</code>. See <a
+href="../../json/INSTALL.html" >INSTALL</a>.
+
+  <li>SashoLib.hs and MonadRandom.hs, which are in
+<code>lib/haskell/</code></li>
+
+<li>Some components from the Faerieplay compiler in
+<code>BASEDIR/sfdl-compiler/</code></li>
+  
+  <li>The Haskell functional graph library (in the
+<code>Data.Graph.Inductive</code> package). This is based at <a
+href="http://web.engr.oregonstate.edu/~erwig/fgl/haskell/" >fgl home at OSU</a>,
+but is usually available with ghc&mdash;it is part of the standard <a
+href="http://www.haskell.org/ghc/download.html" >ghc package</a>. In Debian, it
+is in a separate package <code>libghc6-fgl-dev</code>. </ul>
 
 <h2>Building</h2>
 <pre>
