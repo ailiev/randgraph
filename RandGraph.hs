@@ -350,12 +350,13 @@ printGraph_SFDL ees = let gr_doc    = docCJson $ graph2sfdl ees
 -- interleave dests and weights, and mark the end of an edge list with a (-1,-1) pair
 printGraph_C ees =
     let (dests, ws) = unzip $ concatMap (++ [(-1,-1)]) ees
-        myShow i = let s = show i
+        myShow (d,w) = show d ++ " " ++ show w ++ "\n"
+                       -- let s = show i
                    -- HACK: padding with space to 10 chars here, as expected in read_num()
-                   -- in the ORAM "operating system"
-                   in s ++ (replicate (9 - length s) ' ') ++ "\n"
+                   -- in the Dijkstra C code.
+                   -- in s ++ (replicate (9 - length s) ' ') ++ "\n"
     in
-      concatMap myShow $ interleave dests ws
+      concatMap myShow $ zip dests ws
 
 
 padWithTo pad len l = l ++ (replicate (len - length l) pad)
