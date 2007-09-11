@@ -85,7 +85,7 @@ main =
                    do (_ :: GParams, g)    <- getContents >>= readIO
                       putStr $ printGraph_C g
 
-            "sfdl" ->           -- make an input for the sfdl Dijkstra program
+            "json" ->           -- make an input for the sfdl Dijkstra program
                    do (_ :: GParams, g)           <- getContents >>= readIO
                       putStr $ printGraph_SFDL g
 
