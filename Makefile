@@ -29,5 +29,3 @@ RandGraph: RandGraph.hs
 
 clean:
 	$(RM) RandGraph RandGraph.{o,hi}
-
-dep:
