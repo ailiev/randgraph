@@ -32,7 +32,7 @@ import Maybe                                        (fromJust)
 import Faerieplay.UDraw                             as UDraw
 import Faerieplay.SashoLib
 
-import MonadRandom
+import Control.Monad.Random
 
 import Json.Abs
 import Json.Lex
@@ -49,8 +49,8 @@ usage =         do progname <- getProgName
                    putStrLn "***Shortest path"
                    putStrLn "sp <src> <dest> < graph-file"
                    putStrLn "***Convert to other formats"
-                   putStrLn "c < graph-file			[convert to input for C/ORAM dijkstra porgram]"
-                   putStrLn "json < graph-file		[convert to C-Json format for SFDL dijsktra]"
+                   putStrLn "c < graph-file\t\t\t[convert to input for C/ORAM dijkstra porgram]"
+                   putStrLn "json < graph-file\t\t[convert to C-Json format for SFDL dijsktra]"
                    putStrLn "***Visualizations"
                    putStrLn "gviz < graph-file"
                    putStrLn "udg < graph-file"
