@@ -1,3 +1,5 @@
+{-# LANGUAGE ParallelListComp, ScopedTypeVariables #-}
+
 -- code to randomly generate and manipulate graphs, for the graph-search SFDL and C
 -- programs in Faerieplay.
 
@@ -5,11 +7,6 @@
 -- - number of vertices,
 -- - max out-degree
 -- - weight range
-
--- REQUIRES:    MonadRandom.hs
---              Faerieplay.UDraw
---              Faerieplay.SashoLib
---              Json library
 
 module Main where
 
@@ -29,8 +26,8 @@ import              Text.PrettyPrint                as PP
 
 import Maybe                                        (fromJust)
 
-import Faerieplay.UDraw                             as UDraw
-import Faerieplay.SashoLib
+import IlievUtils.UDraw                             as UDraw
+import IlievUtils.Misc
 
 import Control.Monad.Random
 

@@ -1,0 +1,20 @@
+Name:                randgraph
+Version:             0.1.0
+Description:         A program to generate random graphs, mainly for use in the Faerieplay project.
+License:             BSD3
+License-file:        LICENSE.txt
+Author:              Alexander Iliev
+Maintainer:          alex DOT iliev AT gmail DOT com
+Build-Type:          Simple
+Cabal-Version:       >=1.2
+
+Executable randgraph
+  Main-is:           RandGraph.hs
+  Build-Depends:     haskell98,
+                     base >= 3 && < 5,
+                     pretty,
+                     fgl,
+                     MonadRandom,
+                     faerieplay-json,
+                     ilievutils
+                     
