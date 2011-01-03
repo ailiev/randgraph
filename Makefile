@@ -1,31 +1,20 @@
-BASEDIR = ../..
+# grab from the environment if needed.
+DIST_ROOT ?= $(FAERIEPLAY_DIST_ROOT)
 
-SHARED_DIR=$(BASEDIR)/pir
+ifeq ($(DIST_ROOT),)
+$(error Please set the environment variable FAERIEPLAY_DIST_ROOT)
+endif
 
-include $(SHARED_DIR)/utils.make
-include $(SHARED_DIR)/header.make
+# where cabal puts the build
+EXE = dist/build/randgraph/randgraph
 
-include $(BASEDIR)/rules.make
+all: $(EXE)
 
+install: $(EXE)
+	install $^ $(DIST_ROOT)/bin/
 
-GHCFLAGS += -fallow-overlapping-instances
-GHCFLAGS += -fglasgow-exts
-
-GHCFLAGS += -i$(BASEDIR)/lib/haskell
-GHCFLAGS += -i$(BASEDIR)/sfdl-compiler
-GHCFLAGS += -i$(BASEDIR)/json/bnfc
-
-GHCFLAGS += -v0
-
-
-all: RandGraph
-
-
-install: RandGraph
-	$(INSTALL) $^ $(DIST_BIN)
-
-RandGraph: RandGraph.hs
-	ghc $(GHCFLAGS) --make -o $@ $^
+$(EXE): RandGraph.hs
+	cabal configure && cabal build
 
 clean:
-	$(RM) RandGraph RandGraph.{o,hi}
+	cabal clean
